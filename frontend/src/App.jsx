@@ -127,13 +127,13 @@ export default function App() {
 
     const fetchUserData = async () => {
       try {
-        const ref = doc(db, 'users', user.uid);
+        const ref = doc(db, 'projects', 'master_finance'); // Modo Dados Globais
         const d = await getDoc(ref);
         if (d.exists()) {
           // Merge cloud data over initial state to avoid missing keys
           setStateRaw(s => ({ ...s, ...d.data() }));
         } else {
-          // First time logging in: migrate exactly what is currently in LocalStorage to the Cloud
+          // First time logging in (Global Master): migrate from LocalStorage
           await setDoc(ref, state);
         }
       } catch (err) {
@@ -157,8 +157,8 @@ export default function App() {
         lsSet('quarterly', next.quarterly);
         lsSet('geminiKey', next.geminiKey);
       } else if (user) { 
-        // Cloud Mode
-        setDoc(doc(db, 'users', user.uid), next).catch(err => console.error("Erro ao salvar", err));
+        // Cloud Mode (Global Master Data)
+        setDoc(doc(db, 'projects', 'master_finance'), next).catch(err => console.error("Erro ao salvar", err));
       }
 
       return next;
@@ -903,15 +903,15 @@ function TabConfig({ state, setState, user }) {
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(16,185,129,0.1)', padding: 14, borderRadius: 8, border: '1px solid rgba(16,185,129,0.2)' }}>
             <div>
-              <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}>Conectado e Sincronizando</div>
-              <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 4 }}>Logado como {user.displayName || user.email}</div>
+              <div style={{ color: 'var(--accent-green)', fontWeight: 700 }}>Modo Dados Globais Ativado</div>
+              <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 4 }}>Conectado como {user.displayName || user.email}. Todos os usuários logados com o Google veem e editam os mesmos dados.</div>
             </div>
             <button className="btn-cancel" onClick={() => signOut(auth)}>Sair</button>
           </div>
         ) : (
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: 14, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.1)' }}>
             <div style={{ color: 'white', fontWeight: 700 }}>Modo Local Ativado</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>O SDK do Firebase não está configurado nas variáveis de ambiente. Usando apenas LocalStorage do navegador.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>O SDK do Firebase não está configurado. Usando apenas LocalStorage do navegador.</div>
           </div>
         )}
       </div>

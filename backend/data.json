@@ -1,0 +1,86 @@
+{
+  "countries": [
+    {
+      "id": "uk",
+      "name": "UNITED KINGDOM",
+      "rpm": 51.61
+    },
+    {
+      "id": "ca",
+      "name": "CANADA",
+      "rpm": 51.23
+    },
+    {
+      "id": "us",
+      "name": "EUA",
+      "rpm": 47.41
+    },
+    {
+      "id": "de",
+      "name": "GERMANY",
+      "rpm": 37.87
+    },
+    {
+      "id": "au",
+      "name": "AUSTRALIA",
+      "rpm": 35.77
+    },
+    {
+      "id": "nl",
+      "name": "NETHERLANDS",
+      "rpm": 32.15
+    },
+    {
+      "id": "fr",
+      "name": "FRANCE",
+      "rpm": 25.99
+    },
+    {
+      "id": "pt",
+      "name": "PORTUGAL",
+      "rpm": 25.94
+    },
+    {
+      "id": "ph",
+      "name": "FILIPINAS",
+      "rpm": 12.23
+    },
+    {
+      "id": "ng",
+      "name": "NIGERIA",
+      "rpm": 12.06
+    },
+    {
+      "id": "br",
+      "name": "BRAZIL",
+      "rpm": 11.92
+    },
+    {
+      "id": "id",
+      "name": "INDONESIA",
+      "rpm": 9.63
+    },
+    {
+      "id": "kz",
+      "name": "KAZAQUISTÃO",
+      "rpm": 8.02
+    },
+    {
+      "id": "tr",
+      "name": "TURKEY",
+      "rpm": 7.53
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acc_initial",
+      "name": "Conta 1",
+      "views": {}
+    }
+  ],
+  "selAcc": "acc_initial",
+  "videoCount": 17,
+  "videoGoal": 500,
+  "quarterly": [],
+  "geminiKey": ""
+}

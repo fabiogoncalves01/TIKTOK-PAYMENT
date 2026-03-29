@@ -27,7 +27,9 @@ const MONTH_NAMES = [
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
 ];
 
-const fmt = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmt = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+const fmtInt = (val) => (val === 0 || val) ? new Intl.NumberFormat('pt-BR').format(val) : '';
+const parseMask = (val) => parseInt(val.toString().replace(/\D/g, '')) || 0;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const getMonthStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
@@ -236,7 +238,7 @@ export default function App() {
           </div>
         </div>
         <div className="topnav-right">
-          <span className="topnav-total">{fmt(totalGeral)}</span>
+          <span className="topnav-total">{fmt(totalEstimado)}</span>
         </div>
       </nav>
 
@@ -331,12 +333,36 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
     return { ...acc, total, pct, payStr: nextPayStr };
   });
 
-  // top países (somados no mês selecionado)
+  // Top países (somados no mês selecionado)
   const topCountries = countries
     .map(c => ({ ...c, earn: computeCountryTotal(c.id, accounts, c.rpm, selectedMonth) }))
     .filter(c => c.earn > 0)
     .sort((a, b) => b.earn - a.earn)
     .slice(0, 9);
+
+  // Evolução e Tendência
+  const currentMonthDate = new Date(currentShowDate.getFullYear(), currentShowDate.getMonth(), 1);
+  const prevMonthDate = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - 1, 1);
+  const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  
+  const totalPrev = computeTotal(accounts, countries, prevMonthKey);
+  const diff = totalEstimado - totalPrev;
+  const pctChange = totalPrev > 0 ? ((diff / totalPrev) * 100).toFixed(1) : (totalEstimado > 0 ? 100 : 0);
+
+  // Histórico (6 meses)
+  const history = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - i, 1);
+    const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const val = computeTotal(accounts, countries, mKey);
+    history.push({ 
+      label: MONTH_NAMES[d.getMonth()].slice(0, 3).toUpperCase(), 
+      val, 
+      isCurrent: i === 0,
+      fullKey: mKey 
+    });
+  }
+  const maxHistory = Math.max(...history.map(h => h.val), 100);
 
   const handleAsk = async () => {
     if (!geminiPrompt.trim()) return;
@@ -367,6 +393,7 @@ Pergunta do usuário: ${userMsg}`;
   return (
     <div>
       {/* 4 CARDS */}
+      {/* 4 CARDS PRINCIPAIS */}
       <div className="grid-4">
         <div className="card">
           <div className="card-label">Total Estimado ({MONTH_NAMES[currentShowDate.getMonth()]})</div>
@@ -376,18 +403,22 @@ Pergunta do usuário: ${userMsg}`;
         <div className="card">
           <div className="card-label">Ganhos Trimestrais (Publish)</div>
           <div className="card-value-purple">{fmt(totalTrimestral)}</div>
-          <div className="card-sub">{state.quarterly.length} lançamento(s)</div>
+          <div className="card-sub">{state.quarterly.length} lançamento(s) ativo(s)</div>
         </div>
         <div className="card">
-          <div className="card-label">Projeção Total (Mês + Publish)</div>
-          <div className="card-value-green">{fmt(totalGeral)}</div>
-          <div className="card-sub">{accounts.length} conta(s) ativa(s)</div>
+          <div className="card-label">Seu Desempenho</div>
+          <div className="card-value-green" style={{ color: diff >= 0 ? 'var(--accent-green)' : '#ef4444' }}>
+            {diff >= 0 ? '+' : ''}{fmt(diff).replace('R$', '').trim()}
+          </div>
+          <div className={`trend-badge ${diff >= 0 ? 'trend-up' : 'trend-down'}`}>
+            {diff >= 0 ? '▲' : '▼'} {Math.abs(pctChange)}% vs mês ant.
+          </div>
         </div>
         <div className="card">
           <div className="card-label">Progresso de Vídeos</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span className="card-value-blue">{vCount}</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>/ {vGoal}</span>
+            <span className="card-value-blue">{fmtInt(vCount)}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>/ {fmtInt(vGoal)}</span>
           </div>
           <div style={{ marginTop: 10 }}>
             <div className="progress-bar-track">
@@ -423,12 +454,36 @@ Pergunta do usuário: ${userMsg}`;
               </tr>
             ))}
             <tr style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <td style={{ fontWeight: 700, color: 'white' }}>Total Geral</td>
+              <td style={{ fontWeight: 700, color: 'white' }}>Total Geral do Mês</td>
               <td style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent-gold)', fontWeight: 700 }}>{fmt(totalEstimado)}</td>
               <td colSpan={2} />
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* EVOLUÇÃO MENSAL (GRÁFICO) */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="section-header">
+          <span>📈</span> Evolução dos Ganhos Mensais (Últimos 6 meses)
+        </div>
+        <div className="evolution-container">
+          {history.map((h, i) => {
+            const hPct = (h.val / maxHistory) * 100;
+            return (
+              <div key={i} className="evolution-bar-wrap">
+                <div className="evolution-val" style={{ opacity: h.val > 0 ? 1 : 0.3 }}>{fmt(h.val).split(',')[0]}</div>
+                <div className="evolution-bar-track">
+                  <div 
+                    className={`evolution-bar-fill ${h.isCurrent ? 'active' : ''}`} 
+                    style={{ height: `${Math.max(hPct, 5)}%` }} 
+                  />
+                </div>
+                <div className="evolution-label">{h.label}</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* TOP PAÍSES + GEMINI */}
@@ -662,13 +717,13 @@ function TabVideos({ state, setState, selectedMonth }) {
             <button className="btn-counter btn-counter-plus" onClick={inc}>+1</button>
             <button className="btn-counter btn-counter-minus" onClick={dec}>−1</button>
           </div>
-          <div className="video-count-meta">de {vGoal} (meta)</div>
+          <div className="video-count-meta">de {fmtInt(vGoal)} (meta)</div>
           <div style={{ marginTop: 14 }}>
             <div className="progress-bar-track" style={{ height: 10 }}>
               <div className="progress-bar-fill" style={{ width: `${progress}%`, background: progressColor }} />
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-              faltam {faltam} vídeo(s) — {progress.toFixed(1)}%
+              faltam {fmtInt(faltam)} vídeo(s) — {progress.toFixed(1)}%
             </div>
           </div>
         </div>
@@ -683,20 +738,20 @@ function TabVideos({ state, setState, selectedMonth }) {
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Meta de Vídeos</div>
               <input
                 className="input-dark"
-                type="number"
-                min="1"
-                value={vGoal}
-                onChange={e => updateGoal(parseInt(e.target.value) || 0)}
+                type="text"
+                placeholder="Ex: 500"
+                value={fmtInt(vGoal)}
+                onChange={e => updateGoal(parseMask(e.target.value))}
               />
             </div>
             <div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Vídeos Publicados</div>
               <input
                 className="input-dark"
-                type="number"
-                min="0"
-                value={vCount}
-                onChange={e => updateCount(parseInt(e.target.value) || 0)}
+                type="text"
+                placeholder="0"
+                value={fmtInt(vCount)}
+                onChange={e => updateCount(parseMask(e.target.value))}
               />
             </div>
           </div>
@@ -709,15 +764,15 @@ function TabVideos({ state, setState, selectedMonth }) {
         <div className="stats-mini-grid">
           <div className="stat-mini-card">
             <div className="stat-mini-label">Publicados</div>
-            <div className="stat-mini-val" style={{ color: 'var(--accent-blue)' }}>{vCount}</div>
+            <div className="stat-mini-val" style={{ color: 'var(--accent-blue)' }}>{fmtInt(vCount)}</div>
           </div>
           <div className="stat-mini-card">
             <div className="stat-mini-label">Meta</div>
-            <div className="stat-mini-val" style={{ color: 'var(--accent-gold)' }}>{vGoal}</div>
+            <div className="stat-mini-val" style={{ color: 'var(--accent-gold)' }}>{fmtInt(vGoal)}</div>
           </div>
           <div className="stat-mini-card">
             <div className="stat-mini-label">Faltam</div>
-            <div className="stat-mini-val" style={{ color: faltam === 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{faltam}</div>
+            <div className="stat-mini-val" style={{ color: faltam === 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{fmtInt(faltam)}</div>
           </div>
         </div>
       </div>

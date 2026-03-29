@@ -114,6 +114,18 @@ body {
   transition: all 0.3s;
 }
 
+.topnav-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.topnav-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .input-month-selector:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--accent-cyan);
@@ -290,10 +302,71 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  height: 140px;
+  height: 180px;
   padding-top: 20px;
   margin-top: 10px;
   overflow-x: auto;
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 14px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-shortcuts {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-mini {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.btn-mini:hover {
+  background: rgba(254, 44, 85, 0.15);
+  color: var(--accent-pink);
+  border-color: var(--accent-pink);
+  transform: translateY(-1px);
+}
+
+.history-manual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 15px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.select-mini {
+  background: transparent;
+  border: none;
+  color: var(--accent-cyan);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: 'Sora', sans-serif;
+  cursor: pointer;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.select-mini option {
+  background: #010101;
+  color: #fff;
 }
 
 .evolution-bar-wrap {
@@ -301,8 +374,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  min-width: 60px;
+  gap: 10px;
+  min-width: 45px;
+  transition: all 0.3s ease;
 }
 
 .evolution-bar-track {
@@ -319,8 +393,9 @@ body {
 .evolution-bar-fill {
   width: 100%;
   border-radius: 4px;
-  background: linear-gradient(180deg, var(--accent-blue) 0%, #1e40af 100%);
+  background: linear-gradient(180deg, var(--accent-cyan) 0%, #0891b2 100%);
   transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(37, 244, 238, 0.2);
   cursor: pointer;
 }
 
@@ -329,7 +404,8 @@ body {
 }
 
 .evolution-bar-fill.active {
-  background: linear-gradient(180deg, var(--accent-gold) 0%, #b45309 100%);
+  background: linear-gradient(180deg, var(--accent-pink) 0%, #be123c 100%);
+  box-shadow: 0 0 15px rgba(254, 44, 85, 0.3);
 }
 
 .evolution-label {

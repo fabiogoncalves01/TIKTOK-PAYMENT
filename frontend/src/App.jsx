@@ -812,12 +812,16 @@ function TabVideos({ state, setState, selectedMonth }) {
       <div className="card" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
         <div style={{ flex: 1, minWidth: 280 }}>
           <div className="card-label">Sua Meta Financeira p/ Publish (R$)</div>
-          <input
-            className="input-mono"
-            style={{ fontSize: 32, width: '100%', border: 'none', background: 'transparent', padding: '10px 0', color: 'var(--accent-pink)', fontWeight: 800, outline: 'none' }}
-            value={publishGoal === '' ? '' : fmt(publishGoal)}
-            onChange={e => handleGoalChange(e.target.value)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 32, fontWeight: 800, color: 'var(--accent-pink)' }}>R$</span>
+            <input
+              className="input-mono"
+              style={{ fontSize: 32, width: '100%', border: 'none', background: 'transparent', padding: '10px 0', color: 'var(--accent-pink)', fontWeight: 800, outline: 'none' }}
+              placeholder="0"
+              value={publishGoal === '' ? '' : fmtInt(publishGoal)}
+              onChange={e => handleGoalChange(e.target.value)}
+            />
+          </div>
         </div>
         <div style={{ textAlign: 'right', flex: 1, minWidth: 200 }}>
           <div className="card-label">Acumulado do Mês (VÍDEOS)</div>

@@ -310,6 +310,11 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
   const [geminiMessages, setGeminiMessages] = useState([]);
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  
+  // Período do gráfico - meses de 0 a 11 do ano atual
+  const now = new Date();
+  const [histStart, setHistStart] = useState(0); 
+  const [histEnd, setHistEnd] = useState(now.getMonth()); // Até o mês atual por padrão
 
   const vCount = (state.videoCount?.[selectedMonth] === undefined || state.videoCount?.[selectedMonth] === '') ? 0 : state.videoCount[selectedMonth];
   const vGoal = (state.videoGoal?.[selectedMonth] === undefined || state.videoGoal?.[selectedMonth] === '') ? 500 : state.videoGoal[selectedMonth];
@@ -345,20 +350,27 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
   const diff = totalEstimado - totalPrev;
   const pctChange = totalPrev > 0 ? ((diff / totalPrev) * 100).toFixed(1) : (totalEstimado > 0 ? 100 : 0);
 
-  // Histórico (6 meses)
+  // Histórico Dinâmico (Conforme Seleção)
   const history = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(currentMonthDate.getFullYear(), currentMonthDate.getMonth() - i, 1);
-    const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const currentYear = currentShowDate.getFullYear();
+  for (let m = histStart; m <= histEnd; m++) {
+    const mKey = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
     const val = computeTotal(accounts, countries, mKey);
     history.push({ 
-      label: MONTH_NAMES[d.getMonth()].slice(0, 3).toUpperCase(), 
+      label: MONTH_NAMES[m].slice(0, 3).toUpperCase(), 
       val, 
-      isCurrent: i === 0,
+      isCurrent: m === now.getMonth() && currentYear === now.getFullYear(),
       fullKey: mKey 
     });
   }
   const maxHistory = Math.max(...history.map(h => h.val), 100);
+
+  const applyHistoryShortcut = (mode) => {
+    const curMonth = now.getMonth();
+    if (mode === 'year') { setHistStart(0); setHistEnd(11); }
+    else if (mode === '6m') { setHistStart(Math.max(0, curMonth - 5)); setHistEnd(curMonth); }
+    else if (mode === '3m') { setHistStart(Math.max(0, curMonth - 2)); setHistEnd(curMonth); }
+  };
 
   const handleAsk = async () => {
     if (!geminiPrompt.trim()) return;
@@ -476,13 +488,34 @@ Pergunta do usuário: ${userMsg}`;
         </table>
       </div>
 
-      {/* EVOLUÇÃO MENSAL (GRÁFICO) */}
+      {/* EVOLUÇÃO MENSAL (GRÁFICO DINÂMICO) */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="section-header">
-          <span>📈</span> Evolução dos Ganhos Mensais (Últimos 6 meses)
+        <div className="section-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📈</span> Evolução dos Ganhos Mensais
+          </div>
+          
+          <div className="history-controls">
+            <div className="history-shortcuts">
+              <button className="btn-mini" onClick={() => applyHistoryShortcut('year')}>Este Ano</button>
+              <button className="btn-mini" onClick={() => applyHistoryShortcut('6m')}>6 meses</button>
+              <button className="btn-mini" onClick={() => applyHistoryShortcut('3m')}>3 meses</button>
+            </div>
+            <div className="history-manual">
+              <select value={histStart} onChange={e => setHistStart(Number(e.target.value))} className="select-mini">
+                {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m.slice(0, 3)}</option>)}
+              </select>
+              <span style={{color:'var(--text-muted)'}}>→</span>
+              <select value={histEnd} onChange={e => setHistEnd(Number(e.target.value))} className="select-mini">
+                {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m.slice(0, 3)}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
         <div className="evolution-container">
-          {history.map((h, i) => {
+          {history.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Intervalo inválido selecionado.</div>
+          ) : history.map((h, i) => {
             const hPct = (h.val / maxHistory) * 100;
             return (
               <div key={i} className="evolution-bar-wrap">

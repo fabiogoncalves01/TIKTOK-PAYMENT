@@ -87,6 +87,8 @@ function initState() {
     accounts: rawAccounts,
     videoCount: rawVideoCount,
     videoGoal: rawVideoGoal,
+    publishGoal: ls('publishGoal', 50000), // Meta financeira padrão
+    accountVideos: ls('accountVideos', {}), // Vídeos por conta { accId: { month: count } }
     quarterly: ls('quarterly', []),
     geminiKey: ls('geminiKey', ''),
   };
@@ -106,7 +108,39 @@ async function askGemini(apiKey, prompt) {
   return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.';
 }
 
-// ─── APP ────────────────────────────────────────────────────────────────────
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+const PUBLISH_RATE = 3823 / 1000000;
+
+function getPublishQuarter(date) {
+  const m = date.getMonth();
+  const y = date.getFullYear();
+  // Janela: Dez-Fev (Pay Mar), Mar-Mai (Pay Jun), Jun-Ago (Pay Sep), Set-Nov (Pay Dec)
+  if (m === 11 || m === 0 || m === 1) { // Dez, Jan, Fev
+    const prevYear = m === 11 ? y : y - 1;
+    const curYear = m === 11 ? y + 1 : y;
+    return { 
+      months: [`${prevYear}-12`, `${curYear}-01`, `${curYear}-02`], 
+      payMonth: `Março ${curYear}` 
+    };
+  }
+  if (m >= 2 && m <= 4) { // Mar, Abr, Mai
+    return { 
+      months: [`${y}-03`, `${y}-04`, `${y}-05`], 
+      payMonth: `Junho ${y}` 
+    };
+  }
+  if (m >= 5 && m <= 7) { // Jun, Jul, Ago
+    return { 
+      months: [`${y}-06`, `${y}-07`, `${y}-08`], 
+      payMonth: `Setembro ${y}` 
+    };
+  }
+  // Set, Out, Nov
+  return { 
+    months: [`${y}-09`, `${y}-10`, `${y}-11`], 
+    payMonth: `Dezembro ${y}` 
+  };
+}
 
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined=loading, null=logged_out, false=local_mode
@@ -322,6 +356,21 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
   const progress = vGoal > 0 ? Math.min((vCount / vGoal) * 100, 100) : 0;
   const progressColor = progress < 40 ? '#3b82f6' : progress < 75 ? '#f0a500' : '#10b981';
 
+  // Lógica de Publishing
+  const publishWindow = getPublishQuarter(currentShowDate);
+  let totalVideosTrimestre = 0;
+  state.accounts.forEach(acc => {
+    publishWindow.months.forEach(mKey => {
+      const cnt = state.accountVideos?.[acc.id]?.[mKey] || 0;
+      totalVideosTrimestre += Number(cnt);
+    });
+  });
+  const currentPublishEarn = totalVideosTrimestre * PUBLISH_RATE;
+  const publishTargetMoney = state.publishGoal || 50000;
+  const publishProgress = Math.min((currentPublishEarn / publishTargetMoney) * 100, 100);
+  const publishGapMoney = Math.max(0, publishTargetMoney - currentPublishEarn);
+  const publishGapVideos = publishGapMoney / PUBLISH_RATE;
+
   // breakdown por conta
   const breakdown = accounts.map(acc => {
     const total = computeAccTotal(acc, countries, selectedMonth);
@@ -400,7 +449,6 @@ Pergunta do usuário: ${userMsg}`;
 
   return (
     <div>
-      {/* 4 CARDS */}
       {/* 4 CARDS PRINCIPAIS */}
       <div className="grid-4">
         <div className="card">
@@ -423,17 +471,20 @@ Pergunta do usuário: ${userMsg}`;
           </div>
         </div>
         <div className="card">
-          <div className="card-label">Progresso de Vídeos</div>
+          <div className="card-label">Publishing (Lançamento {publishWindow.payMonth})</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span className="card-value-blue">{fmtInt(vCount)}</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>/ {fmtInt(vGoal)}</span>
+            <span className="card-value-purple" style={{ color: 'var(--accent-cyan)' }}>{fmt(currentPublishEarn)}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>/ {fmt(publishTargetMoney)}</span>
           </div>
           <div style={{ marginTop: 10 }}>
             <div className="progress-bar-track">
-              <div className="progress-bar-fill" style={{ width: `${progress}%`, background: progressColor }} />
+              <div className="progress-bar-fill" style={{ width: `${publishProgress}%`, background: 'linear-gradient(90deg, var(--accent-cyan), var(--accent-pink))' }} />
             </div>
           </div>
-          <div className="card-sub" style={{ marginTop: 6 }}>{progress.toFixed(1)}% da meta</div>
+          <div className="card-sub" style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <span>{publishProgress.toFixed(1)}% da meta</span>
+            <span style={{ color: 'var(--accent-pink)', fontWeight: 700 }}>Faltam {fmtInt(Math.ceil(publishGapVideos))} vídeos</span>
+          </div>
         </div>
       </div>
 
@@ -727,100 +778,94 @@ function TabContas({ state, setState, selectedMonth, currentShowDate }) {
 // ─── TAB VÍDEOS ─────────────────────────────────────────────────────────────
 
 function TabVideos({ state, setState, selectedMonth }) {
-  const vCount = (state.videoCount?.[selectedMonth] === undefined || state.videoCount?.[selectedMonth] === '') ? 0 : state.videoCount[selectedMonth];
-  const vGoal = (state.videoGoal?.[selectedMonth] === undefined || state.videoGoal?.[selectedMonth] === '') ? 500 : state.videoGoal[selectedMonth];
+  const { accounts, accountVideos, publishGoal } = state;
 
-  const progress = vGoal > 0 ? Math.min((vCount / vGoal) * 100, 100) : 0;
-  const progressColor = progress < 40 ? '#3b82f6' : progress < 75 ? '#f0a500' : '#10b981';
-  const faltam = Math.max(0, vGoal - vCount);
-
-  const updateCount = (newCount) => {
-    setState(s => ({ 
-      ...s, 
-      videoCount: { ...(s.videoCount || {}), [selectedMonth]: newCount } 
-    }));
+  const handleVideoChange = (accId, val) => {
+    const num = parseMask(val);
+    setState(s => {
+      const curVideos = s.accountVideos?.[accId] || {};
+      return {
+        ...s,
+        accountVideos: {
+          ...s.accountVideos,
+          [accId]: { ...curVideos, [selectedMonth]: num }
+        }
+      };
+    });
   };
 
-  const updateGoal = (newGoal) => {
-    setState(s => ({ 
-      ...s, 
-      videoGoal: { ...(s.videoGoal || {}), [selectedMonth]: newGoal } 
-    }));
+  const handleGoalChange = (val) => {
+    const num = parseMask(val);
+    setState(s => ({ ...s, publishGoal: num }));
   };
 
-  const inc = () => updateCount(vCount + 1);
-  const dec = () => updateCount(Math.max(0, vCount - 1));
+  // Cálculo para resumo no topo da aba
+  let totalVideosMes = 0;
+  accounts.forEach(acc => {
+    totalVideosMes += Number(accountVideos?.[acc.id]?.[selectedMonth] || 0);
+  });
+  const mesEarn = totalVideosMes * PUBLISH_RATE;
 
   return (
     <div>
-      <div className="videos-layout">
-        {/* PROGRESSO */}
-        <div className="card">
-          <div className="section-header">
-            <span>🎬</span> Progresso de Vídeos no Mês
-          </div>
-          <div className="video-counter-box">
-            <div className="video-count-num">{vCount}</div>
-            <button className="btn-counter btn-counter-plus" onClick={inc}>+1</button>
-            <button className="btn-counter btn-counter-minus" onClick={dec}>−1</button>
-          </div>
-          <div className="video-count-meta">de {fmtInt(vGoal)} (meta)</div>
-          <div style={{ marginTop: 14 }}>
-            <div className="progress-bar-track" style={{ height: 10 }}>
-              <div className="progress-bar-fill" style={{ width: `${progress}%`, background: progressColor }} />
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-              faltam {fmtInt(faltam)} vídeo(s) — {progress.toFixed(1)}%
-            </div>
-          </div>
+      {/* HEADER DE METAS */}
+      <div className="card" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div className="card-label">Sua Meta Financeira p/ Publish (R$)</div>
+          <input
+            className="input-mono"
+            style={{ fontSize: 32, width: '100%', border: 'none', background: 'transparent', padding: '10px 0', color: 'var(--accent-pink)', fontWeight: 800, outline: 'none' }}
+            value={publishGoal === '' ? '' : fmt(publishGoal)}
+            onChange={e => handleGoalChange(e.target.value)}
+          />
         </div>
-
-        {/* META */}
-        <div className="card">
-          <div className="section-header">
-            <span>🎯</span> Configurar Meta
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Meta de Vídeos</div>
-              <input
-                className="input-dark"
-                type="text"
-                placeholder="Ex: 500"
-                value={state.videoGoal?.[selectedMonth] === '' ? '' : fmtInt(vGoal)}
-                onChange={e => updateGoal(parseMask(e.target.value))}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Vídeos Publicados</div>
-              <input
-                className="input-dark"
-                type="text"
-                placeholder="0"
-                value={state.videoCount?.[selectedMonth] === '' ? '' : fmtInt(vCount)}
-                onChange={e => updateCount(parseMask(e.target.value))}
-              />
-            </div>
-          </div>
+        <div style={{ textAlign: 'right', flex: 1, minWidth: 200 }}>
+          <div className="card-label">Acumulado do Mês (VÍDEOS)</div>
+          <div className="card-value-cyan" style={{ fontSize: 32 }}>{fmt(mesEarn)}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>{fmtInt(totalVideosMes)} vídeos postados</div>
         </div>
       </div>
 
-      {/* ESTATÍSTICAS */}
-      <div className="card" style={{ marginTop: 0 }}>
-        <div className="section-header">📈 Estatísticas</div>
-        <div className="stats-mini-grid">
-          <div className="stat-mini-card">
-            <div className="stat-mini-label">Publicados</div>
-            <div className="stat-mini-val" style={{ color: 'var(--accent-blue)' }}>{fmtInt(vCount)}</div>
-          </div>
-          <div className="stat-mini-card">
-            <div className="stat-mini-label">Meta</div>
-            <div className="stat-mini-val" style={{ color: 'var(--accent-gold)' }}>{fmtInt(vGoal)}</div>
-          </div>
-          <div className="stat-mini-card">
-            <div className="stat-mini-label">Faltam</div>
-            <div className="stat-mini-val" style={{ color: faltam === 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{fmtInt(faltam)}</div>
-          </div>
+      {/* LISTA DE CONTAS */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>CONTROLE DE VÍDEOS POR CONTA</span>
+          <div className="badge-pending" style={{ padding: '4px 12px', fontSize: 10 }}>{selectedMonth}</div>
+        </div>
+        
+        <div style={{ padding: '0 24px 24px 24px' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Conta</th>
+                <th style={{ width: 220 }}>Vídeos Postados</th>
+                <th style={{ textAlign: 'right' }}>Estimativa Publish</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map(acc => {
+                const count = accountVideos?.[acc.id]?.[selectedMonth] || '';
+                const earn = Number(count || 0) * PUBLISH_RATE;
+                return (
+                  <tr key={acc.id}>
+                    <td style={{ fontWeight: 700, color: 'white' }}>{acc.name}</td>
+                    <td>
+                      <input
+                        className="input-mono"
+                        placeholder="0"
+                        value={count === '' ? '' : fmtInt(count)}
+                        onChange={e => handleVideoChange(acc.id, e.target.value)}
+                        style={{ width: '100%', fontSize: 16, padding: '8px 12px' }}
+                      />
+                    </td>
+                    <td style={{ textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', color: earn > 0 ? 'var(--accent-cyan)' : 'var(--text-muted)', fontWeight: 700, fontSize: 15 }}>
+                      {fmt(earn)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

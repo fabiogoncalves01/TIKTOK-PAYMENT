@@ -231,6 +231,90 @@ body {
   margin-bottom: 20px;
 }
 
+/* ===== TENDENCIA & PERFORMANCE ===== */
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.trend-up {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-green);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.trend-down {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ===== EVOLUCAO MENSAL CHART ===== */
+.evolution-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  height: 140px;
+  padding-top: 20px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.evolution-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 60px;
+}
+
+.evolution-bar-track {
+  width: 32px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.evolution-bar-fill {
+  width: 100%;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent-blue) 0%, #1e40af 100%);
+  transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.evolution-bar-fill:hover {
+  filter: brightness(1.2);
+}
+
+.evolution-bar-fill.active {
+  background: linear-gradient(180deg, var(--accent-gold) 0%, #b45309 100%);
+}
+
+.evolution-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.evolution-val {
+  font-size: 11px;
+  color: var(--text-sub);
+  font-family: 'JetBrains Mono', monospace;
+}
+
 /* ===== SECTION HEADER ===== */
 .section-header {
   display: flex;

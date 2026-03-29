@@ -29,7 +29,10 @@ const MONTH_NAMES = [
 
 const fmt = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 const fmtInt = (val) => (val === 0 || val) ? new Intl.NumberFormat('pt-BR').format(val) : '';
-const parseMask = (val) => parseInt(val.toString().replace(/\D/g, '')) || 0;
+const parseMask = (val) => {
+  const clean = val.toString().replace(/\D/g, '');
+  return clean === '' ? '' : parseInt(clean);
+};
 const uid = () => Math.random().toString(36).slice(2, 9);
 const getMonthStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
@@ -200,44 +203,31 @@ export default function App() {
   // Month selector options
   const monthOptions = [];
   const now = new Date();
-  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
-    for (let m = 0; m < 12; m++) {
-      const val = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = `${MONTH_NAMES[m]} ${y}`;
-      monthOptions.push({ val, label });
-    }
+  const currentYear = now.getFullYear();
+  for (let m = 0; m < 12; m++) {
+    const val = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
+    const label = `${MONTH_NAMES[m]} ${currentYear}`;
+    monthOptions.push({ val, label });
   }
 
   return (
     <div className="app-wrapper">
       {/* TOP NAV */}
-      <nav className="topnav">
-        <div className="topnav-brand" style={{ gap: 20 }}>
-          <span className="topnav-logo">◫ Creator<span>Finance</span></span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <select 
-              value={selectedMonth} 
-              onChange={e => setSelectedMonth(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.05)',
-                color: 'white',
-                border: '1px solid rgba(255,255,255,0.1)',
-                padding: '4px 10px',
-                borderRadius: '6px',
-                fontFamily: 'Sora',
-                fontSize: 12,
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              {monthOptions.map(opt => (
-                <option key={opt.val} value={opt.val} style={{background: '#0d1117'}}>{opt.label}</option>
-              ))}
-            </select>
-            <div className="topnav-sub">Próx. pagamento: {nextPayStr}</div>
-          </div>
+      <nav className="topnav section-header">
+        <div className="topnav-brand">
+          <div className="topnav-logo">TIKTOK <span>FINANCE</span></div>
+          <div className="topnav-sub">PREMIUM SOUDON EDITION</div>
         </div>
         <div className="topnav-right">
+          <select 
+            value={selectedMonth} 
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="input-month-selector"
+          >
+            {monthOptions.map(opt => (
+              <option key={opt.val} value={opt.val} style={{background: '#010101'}}>{opt.label}</option>
+            ))}
+          </select>
           <span className="topnav-total">{fmt(totalEstimado)}</span>
         </div>
       </nav>
@@ -319,9 +309,10 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
   const [geminiPrompt, setGeminiPrompt] = useState('');
   const [geminiMessages, setGeminiMessages] = useState([]);
   const [geminiLoading, setGeminiLoading] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
-  const vCount = state.videoCount?.[selectedMonth] || 0;
-  const vGoal = state.videoGoal?.[selectedMonth] || 500;
+  const vCount = (state.videoCount?.[selectedMonth] === undefined || state.videoCount?.[selectedMonth] === '') ? 0 : state.videoCount[selectedMonth];
+  const vGoal = (state.videoGoal?.[selectedMonth] === undefined || state.videoGoal?.[selectedMonth] === '') ? 500 : state.videoGoal[selectedMonth];
 
   const progress = vGoal > 0 ? Math.min((vCount / vGoal) * 100, 100) : 0;
   const progressColor = progress < 40 ? '#3b82f6' : progress < 75 ? '#f0a500' : '#10b981';
@@ -332,6 +323,11 @@ function TabResumo({ state, setState, selectedMonth, currentShowDate, totalEstim
     const pct = totalEstimado > 0 ? ((total / totalEstimado) * 100).toFixed(1) : '0.0';
     return { ...acc, total, pct, payStr: nextPayStr };
   });
+
+  // Ordenar por ganho e fatiar baseado no estado expansível
+  const sortedBreakdown = [...breakdown].sort((a, b) => b.total - a.total);
+  const displayedBreakdown = showAll ? sortedBreakdown : sortedBreakdown.slice(0, 10);
+  const hiddenCount = accounts.length - 10;
 
   // Top países (somados no mês selecionado)
   const topCountries = countries
@@ -445,7 +441,7 @@ Pergunta do usuário: ${userMsg}`;
             </tr>
           </thead>
           <tbody>
-            {breakdown.map(acc => (
+            {displayedBreakdown.map(acc => (
               <tr key={acc.id}>
                 <td style={{ fontWeight: 700, color: 'white' }}>{acc.name}</td>
                 <td style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent-gold)', fontWeight: 700 }}>{fmt(acc.total)}</td>
@@ -453,6 +449,24 @@ Pergunta do usuário: ${userMsg}`;
                 <td style={{ color: 'var(--text-sub)' }}>{acc.payStr}</td>
               </tr>
             ))}
+            {!showAll && accounts.length > 10 && (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <button className="btn-outline-cyan" onClick={() => setShowAll(true)}>
+                    Ver todas as {accounts.length} contas (+{hiddenCount} ocultas)
+                  </button>
+                </td>
+              </tr>
+            )}
+            {showAll && accounts.length > 10 && (
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <button className="btn-outline-pink" onClick={() => setShowAll(false)}>
+                    Recolher lista (mostrar apenas as principais)
+                  </button>
+                </td>
+              </tr>
+            )}
             <tr style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               <td style={{ fontWeight: 700, color: 'white' }}>Total Geral do Mês</td>
               <td style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent-gold)', fontWeight: 700 }}>{fmt(totalEstimado)}</td>
@@ -680,8 +694,8 @@ function TabContas({ state, setState, selectedMonth, currentShowDate }) {
 // ─── TAB VÍDEOS ─────────────────────────────────────────────────────────────
 
 function TabVideos({ state, setState, selectedMonth }) {
-  const vCount = state.videoCount?.[selectedMonth] || 0;
-  const vGoal = state.videoGoal?.[selectedMonth] || 500;
+  const vCount = (state.videoCount?.[selectedMonth] === undefined || state.videoCount?.[selectedMonth] === '') ? 0 : state.videoCount[selectedMonth];
+  const vGoal = (state.videoGoal?.[selectedMonth] === undefined || state.videoGoal?.[selectedMonth] === '') ? 500 : state.videoGoal[selectedMonth];
 
   const progress = vGoal > 0 ? Math.min((vCount / vGoal) * 100, 100) : 0;
   const progressColor = progress < 40 ? '#3b82f6' : progress < 75 ? '#f0a500' : '#10b981';
@@ -740,7 +754,7 @@ function TabVideos({ state, setState, selectedMonth }) {
                 className="input-dark"
                 type="text"
                 placeholder="Ex: 500"
-                value={fmtInt(vGoal)}
+                value={state.videoGoal?.[selectedMonth] === '' ? '' : fmtInt(vGoal)}
                 onChange={e => updateGoal(parseMask(e.target.value))}
               />
             </div>
@@ -750,7 +764,7 @@ function TabVideos({ state, setState, selectedMonth }) {
                 className="input-dark"
                 type="text"
                 placeholder="0"
-                value={fmtInt(vCount)}
+                value={state.videoCount?.[selectedMonth] === '' ? '' : fmtInt(vCount)}
                 onChange={e => updateCount(parseMask(e.target.value))}
               />
             </div>
